@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>لوحة تحكم الطالب</title>
+
+    <!-- External Scripts -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Google Fonts: Tajawal -->
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Tajawal', 'sans-serif']
+                    },
+                    colors: {
+                        brand: {
+                            light: '#e6f5f0',
+                            DEFAULT: '#259f78',
+                            dark: '#1e8262'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: #f9fafb;
+            margin: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .fade-in-section {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Blink Animation for Sunday 3rd Period - Light Blue Theme */
+        @keyframes blink-blue-bg {
+            0%, 100% { background-color: #eff6ff; }
+            50% { background-color: #dbeafe; }
+        }
+
+        .animate-blink-blue {
+            animation: blink-blue-bg 1.8s infinite ease-in-out;
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        
+        svg {
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        .nav-button {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .tooltip-container {
+            position: relative;
+        }
+        .tooltip-text {
+            visibility: hidden;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 4px 8px;
+            position: absolute;
+            z-index: 100;
+            bottom: 110%;
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+            font-size: 10px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .tooltip-container:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, padding 0.3s ease;
+        }
+        .accordion-content.open {
+            max-height: 500px;
+            padding-top: 1rem;
+        }
+
+        .modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(4px);
+        }
+
+        /* Chart Animations Fixed */
+        .chart-bar {
+            transition: height 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            min-width: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useLayoutEffect } = React;
+        
+        const subjects = ["رياضيات", "علوم", "اجتماعيات", "رقمية", "دين", "إنجليزي", "لغة عربية", "مهارات حياتية"];
+        const lessonTopics = ["جمع الكسور", "الخلية النباتية", "تاريخ المملكة", "أساسيات البرمجة", "تفسير سورة النور", "Present Simple", "الفاعل والمفعول", "إدارة الوقت"];
+        const days = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس"];
+        
+        const activityIcons = [
+            { icon: "pencil-line", label: "واجب منزلي" },
+            { icon: "clipboard-check", label: "اختبار قصير" },
+            { icon: "layers", label: "مشروع فصلي" },
+            { icon: "search", label: "بحث علمي" }
+        ];
+
+        function generateDaySchedule(dayName) {
+          let schedule = [];
+          
+          schedule.push({
+            type: "morning-assembly",
+            name: "الإذاعة المدرسية",
+            label: "الاصطفاف الصباحي",
+            time: "06:45 ص - 07:00 ص",
+            classes: "2م"
+          });
+
+          let time = new Date();
+          time.setHours(7, 0, 0);
+
+          const format = d =>
+            d.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+          for (let i = 1; i <= 7; i++) {
+            let start = format(time);
+            time.setMinutes(time.getMinutes() + 45);
+            let end = format(time);
+
+            const subjectIdx = (i + days.indexOf(dayName)) % subjects.length;
+            const activityData = activityIcons[(i - 1) % activityIcons.length];
+
+            schedule.push({
+              type: "lesson",
+              id: i,
+              name: subjects[subjectIdx],
+              topic: lessonTopics[subjectIdx],
+              activityIcon: activityData.icon,
+              activityLabel: activityData.label,
+              time: `${start} - ${end}`,
+              hasVideo: i % 2 !== 0,
+              location: "القاعة " + (100 + i),
+              content: "شرح مفصل حول " + lessonTopics[subjectIdx] + " مع تطبيقات عملية."
+            });
+
+            if (i === 3) {
+              let bStart = format(time);
+              time.setMinutes(time.getMinutes() + 30);
+              schedule.push({
+                type: "break",
+                name: "فسحة مدرسية",
+                time: `${bStart} - ${format(time)}`
+              });
+            }
+          }
+          return schedule;
+        }
+
+        const fullSchedule = {};
+        days.forEach(d => fullSchedule[d] = generateDaySchedule(d));
+
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('dashboard');
+            const [selectedDate, setSelectedDate] = useState(11);
+            const [selectedDay, setSelectedDay] = useState("الأحد");
+            const [expandedLesson, setExpandedLesson] = useState(null);
+            const [isContactOpen, setIsContactOpen] = useState(false);
+            const [activeChart, setActiveChart] = useState('academic');
+
+            useLayoutEffect(() => {
+                if (window.lucide) {
+                    window.lucide.createIcons();
+                }
+            }, [activeTab, selectedDate, selectedDay, expandedLesson, isContactOpen, activeChart]);
+
+            const studentInfo = {
+                name: "محمد حاصل الاسمري ",
+                bio: "طالب في الصف الثاني متوسط اهتم بالتقنية والمشاركة في المشاريع الابداعية.",
+                id: "442109876"
+            };
+
+            const honorRoll = [
+                { name: "أحمد بن علي القحطاني", grade: "99.8%" },
+                { name: "خالد بن محمد الشهري", grade: "99.5%" },
+                { name: "سلطان بن عبدالله العتيبي", grade: "99.2%" }
+            ];
+
+            const leaderboard = [
+                { name: "فيصل بن سعد الرشيد", title: "المثابر", points: "1250 نقطة" },
+                { name: "فهد بن صالح التميمي", title: "المبدع", points: "1180 نقطة" },
+                { name: "عمر بن يوسف الحربي", title: "المتفاعل", points: "1120 نقطة" }
+            ];
+
+            const upcomingTasks = [
+                { title: "حل تمارين ص 45", subject: "رياضيات", date: "الأحد", time: "10:00 م", taskType: "واجب", icon: "pencil-line" },
+                { title: "اختبار دوري أول", subject: "علوم", date: "الاثنين", time: "08:15 ص", taskType: "اختبار", icon: "clipboard-check" },
+                { title: "تصميم موقع شخصي", subject: "رقمية", date: "الأربعاء", time: "11:59 م", taskType: "مشروع", icon: "layers" },
+                { title: "تاريخ الجزيرة العربية", subject: "اجتماعيات", date: "الخميس", time: "01:00 م", taskType: "بحث", icon: "search" }
+            ];
+
+            // Chart Data
+            const academicPerformance = [
+                { label: "رياضيات", value: 95 },
+                { label: "علوم", value: 98 },
+                { label: "رقمية", value: 100 },
+                { label: "لغة عربية", value: 92 },
+                { label: "إنجليزي", value: 96 }
+            ];
+
+            const nationalTests = [
+                { label: "علوم", value: 88 },
+                { label: "رياضيات", value: 91 },
+                { label: "قراءة", value: 85 }
+            ];
+
+            const attendanceData = [
+                { label: "حضور", value: 20, color: "bg-green-500" },
+                { label: "غياب", value: 3, color: "bg-red-500" },
+                { label: "تأخر", value: 5, color: "bg-yellow-500" }
+            ];
+
+            const extraCurricularData = [
+                { label: "ساعات التطوع", value: 30, color: "bg-blue-500" },
+                { label: "الأنشطة", value: 17, color: "bg-purple-500" }
+            ];
+
+            const behaviorData = [
+                { label: "إيجابي", value: 15, color: "bg-green-500" },
+                { label: "سلبي", value: 4, color: "bg-red-500" }
+            ];
+
+            const events = {
+                11: { name: "دورة البرمجة (بايثون)", icon: "💻", time: "09:00 ص - 11:00 ص", desc: "تعلم أساسيات لغة بايثون وكيفية بناء تطبيقات بسيطة.", location: "المعمل التقني 3" },
+                12: { name: "ورشة عمل الأمن السيبراني", icon: "🛡️", time: "10:00 ص - 12:30 م", desc: "مقدمة في حماية البيانات والخصوصية الرقمية.", location: "القاعة الرئيسية" },
+                15: { name: "اختبار مهارات الاتصال", icon: "📝", time: "01:00 م - 02:30 م", desc: "تقييم مهارات العرض والإلقاء والعمل الجماعي.", location: "قاعة الاختبارات 102" },
+                20: { name: "رحلة مدرسية علمية", icon: "🚌", time: "08:00 ص - 02:00 م", desc: "زيارة لمركز الابتكار والعلوم.", location: "مركز الابتكار الوطني" },
+                25: { name: "موعد تسليم المشروع التقني", icon: "🚀", time: "قبل الساعة 11:59 م", desc: "الموعد النهائي لرفع ملفات المشروع الإبداعي.", location: "المنصة الإلكترونية" }
+            };
+
+            const daysOfWeek = ['ح', 'ن', 'ث', 'ر', 'خ', 'ج', 'س'];
+            const calendarDays = Array.from({ length: 31 }, (_, i) => i + 1);
+            const startEmptyDays = Array.from({ length: 4 });
+
+            const toggleLesson = (id) => {
+                setExpandedLesson(expandedLesson === id ? null : id);
+            };
+
+            const renderChart = () => {
+                let data = [];
+                let maxVal = 100;
+
+                if (activeChart === 'academic') data = academicPerformance;
+                else if (activeChart === 'national') data = nationalTests;
+                else if (activeChart === 'attendance') {
+                    data = attendanceData;
+                    maxVal = 25;
+                }
+                else if (activeChart === 'extracurricular') {
+                    data = extraCurricularData;
+                    maxVal = 35;
+                }
+                else if (activeChart === 'behavior') {
+                    data = behaviorData;
+                    maxVal = 20;
+                }
+
+                return (
+                    <div className="flex items-end justify-around h-48 mt-8 pb-2 gap-4 border-b border-gray-100 px-2 relative">
+                        {/* Background Lines */}
+                        <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-5">
+                            <div className="border-t border-gray-900 w-full h-0"></div>
+                            <div className="border-t border-gray-900 w-full h-0"></div>
+                            <div className="border-t border-gray-900 w-full h-0"></div>
+                        </div>
+
+                        {data.map((item, i) => (
+                            <div key={i} className="flex flex-col items-center flex-1 h-full justify-end group">
+                                <span className="text-[11px] font-extrabold text-gray-500 mb-2 transform group-hover:scale-110 transition-transform">
+                                    {item.value}
+                                </span>
+                                <div 
+                                    className={`w-full max-w-[45px] rounded-t-xl chart-bar shadow-sm group-hover:brightness-95 ${item.color || 'bg-brand'}`} 
+                                    style={{ height: `${(item.value / maxVal) * 100}%`, minHeight: '4px' }}
+                                ></div>
+                                <span className="text-[10px] font-bold text-gray-700 mt-3 whitespace-nowrap overflow-hidden text-ellipsis w-full text-center">
+                                    {item.label}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                );
+            };
+
+            const renderContent = () => {
+                switch (activeTab) {
+                    case 'schedule':
+                        return (
+                            <div className="fade-in-section text-right space-y-6">
+                                <h2 className="text-3xl font-bold text-gray-900">الجدول المدرسي اليومي</h2>
+                                
+                                <div className="bg-white p-2 rounded-2xl shadow-sm flex gap-2 border border-gray-100 overflow-x-auto no-scrollbar">
+                                    {days.map(day => (
+                                        <button
+                                            key={day}
+                                            onClick={() => setSelectedDay(day)}
+                                            className={`flex-1 py-2 px-6 rounded-xl text-sm font-bold transition-all whitespace-nowrap
+                                            ${selectedDay === day ? 'bg-brand text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}
+                                        >
+                                            {day}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className="space-y-3 pb-28">
+                                    {fullSchedule[selectedDay].map((item, index) => {
+                                        if (item.type === "morning-assembly") {
+                                            return (
+                                                <div key={index} className="bg-brand border-r-4 border-brand-dark rounded-xl p-4 grid grid-cols-3 items-center text-white shadow-sm">
+                                                    <div className="flex flex-col">
+                                                        <span className="font-bold text-sm">{item.label}</span>
+                                                        <span className="text-[10px] opacity-90 font-medium">{item.time}</span>
+                                                    </div>
+                                                    <div className="flex justify-center items-center gap-2">
+                                                        <i data-lucide="mic-2" className="w-4 h-4 text-white/80"></i>
+                                                        <span className="font-bold text-md">{item.name}</span>
+                                                    </div>
+                                                    <div className="flex flex-col items-end">
+                                                        <span className="text-[10px] opacity-80 font-bold mb-0.5">الصف</span>
+                                                        <span className="text-xs font-bold bg-white/20 px-4 py-0.5 rounded-full">{item.classes}</span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+
+                                        if (item.type === "break") {
+                                            return (
+                                                <div key={index} className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 flex justify-between items-center text-sm font-bold text-brand">
+                                                    <div className="flex items-center">
+                                                        <span className="ml-2 text-lg">☕</span>
+                                                        <span>{item.name}</span>
+                                                    </div>
+                                                    <span className="text-xs bg-white/50 px-3 py-1 rounded-full">{item.time}</span>
+                                                </div>
+                                            );
+                                        }
+
+                                        const needsLeftGreenBorder = item.type === "lesson" && [1, 5, 6, 7].includes(item.id);
+                                        const isSecondLesson = item.type === "lesson" && item.id === 2;
+                                        const isThirdLesson = item.type === "lesson" && item.id === 3;
+                                        const isFourthLesson = item.type === "lesson" && item.id === 4;
+                                        const isOpen = expandedLesson === item.id;
+                                        
+                                        const isSundayThirdLesson = selectedDay === "الأحد" && item.id === 3;
+
+                                        return (
+                                            <div 
+                                                key={index} 
+                                                onClick={() => toggleLesson(item.id)}
+                                                className={`bg-white p-5 rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer 
+                                                ${isSundayThirdLesson 
+                                                    ? 'animate-blink-blue border-r-[6px] border-r-yellow-400 border-l-[6px] border-l-brand' 
+                                                    : 'border border-gray-100'}
+                                                ${!isSundayThirdLesson && isSecondLesson ? 'border-r-4 border-l-4 border-r-red-500 border-l-red-500' : ''}
+                                                ${!isSundayThirdLesson && isThirdLesson ? 'border-r-4 border-l-4 border-r-yellow-400 border-l-brand' : ''}
+                                                ${!isSundayThirdLesson && isFourthLesson ? 'border-r-4 border-l-4 border-r-brand border-l-yellow-400' : ''}
+                                                ${!isSundayThirdLesson && !isSecondLesson && !isThirdLesson && !isFourthLesson ? 'border-r-4 border-r-brand' : ''}
+                                                ${!isSundayThirdLesson && needsLeftGreenBorder ? 'border-l-4 border-l-brand' : ''}`}
+                                            >
+                                                <div className="grid grid-cols-3 items-center">
+                                                    <div className="flex flex-col gap-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                                                <i data-lucide="book-open" className={`w-4 h-4 ${isSundayThirdLesson ? 'text-blue-500' : isSecondLesson ? 'text-red-500' : isThirdLesson || isFourthLesson ? 'text-yellow-500' : 'text-brand'}`}></i>
+                                                            </div>
+                                                            <span className="text-xs text-gray-400 font-bold whitespace-nowrap">الحصة {item.id}</span>
+                                                        </div>
+                                                        <div className="flex items-center text-gray-500 font-medium pr-1">
+                                                            <i data-lucide="clock" className="w-3 h-3 ml-1 text-gray-300"></i>
+                                                            <span className="text-[10px] whitespace-nowrap">{item.time}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex flex-col items-center justify-center text-center px-1">
+                                                        <p className="font-bold text-gray-800 text-lg leading-tight">{item.name}</p>
+                                                        <div className="flex items-center justify-center gap-1 mt-1">
+                                                            {item.hasVideo && <i data-lucide="video" className="w-4 h-4 text-brand/70"></i>}
+                                                            <p className="text-[11px] text-gray-500 font-bold truncate w-full">{item.topic}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex flex-col items-center justify-center border-r border-gray-50 pr-4">
+                                                        <span className="text-[9px] text-gray-400 font-bold mb-1 whitespace-nowrap opacity-80">المهام المطلوبة</span>
+                                                        <div className={`tooltip-container p-2 rounded-xl cursor-help ${isSundayThirdLesson ? 'bg-blue-100 text-blue-700 border-blue-200' : isSecondLesson ? 'bg-red-50 text-red-500' : isThirdLesson || isFourthLesson ? 'bg-yellow-50 text-yellow-600' : 'bg-brand/10 text-brand'} shadow-sm border border-white/50`}>
+                                                            <i data-lucide={item.activityIcon} className="w-4 h-4"></i>
+                                                            <span className="tooltip-text">{item.activityLabel}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className={`accordion-content ${isOpen ? 'open' : ''}`}>
+                                                    <div className="mt-4 pt-4 border-t border-gray-50 space-y-4">
+                                                        <div className="flex items-start gap-3">
+                                                            <div className="bg-brand/10 p-1.5 rounded-lg">
+                                                                <i data-lucide="map-pin" className="w-3.5 h-3.5 text-brand"></i>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-[10px] text-gray-400 font-bold">مكان الحصة</p>
+                                                                <p className="text-xs text-gray-700 font-medium">{item.location}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-start gap-3">
+                                                            <div className="bg-brand/10 p-1.5 rounded-lg">
+                                                                <i data-lucide="file-text" className="w-3.5 h-3.5 text-brand"></i>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-[10px] text-gray-400 font-bold">المحتوى العلمي</p>
+                                                                <p className="text-xs text-gray-700 font-medium leading-relaxed">{item.content}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-start gap-3">
+                                                            <div className="bg-brand/10 p-1.5 rounded-lg">
+                                                                <i data-lucide="check-square" className="w-3.5 h-3.5 text-brand"></i>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-[10px] text-gray-400 font-bold">المهام المطلوبة</p>
+                                                                <p className="text-xs text-gray-700 font-medium">إكمال {item.activityLabel} وتسليمه قبل الحصة القادمة.</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        );
+                    case 'dashboard':
+                        return (
+                            <div className="fade-in-section space-y-8 text-center">
+                                <h2 className="text-3xl font-bold text-gray-900 text-right px-2">لوحة البيانات</h2>
+                                <div className="bg-white p-6 rounded-2xl border border-gray-50 shadow-sm hover:border-brand/30 transition-all flex flex-col items-center">
+                                    <div className="relative mb-6">
+                                        <div className="w-24 h-24 rounded-full border-4 border-brand/20 p-1 mx-auto">
+                                            <div className="w-full h-full bg-gray-100 rounded-full flex items-center justify-center overflow-hidden">
+                                                <i data-lucide="user" className="text-brand w-12 h-12"></i>
+                                            </div>
+                                        </div>
+                                        <div className="mt-4 bg-brand/10 px-4 py-1 rounded-full inline-block">
+                                            <p className="text-brand font-bold text-xs">الحالة: متصل</p>
+                                        </div>
+                                    </div>
+                                    <h1 className="text-2xl font-black text-gray-800">{studentInfo.name}</h1>
+                                    <p className="text-brand font-bold text-sm mb-4">{studentInfo.id}</p>
+                                    <div className="max-w-md border-t border-gray-50 pt-4">
+                                        <p className="text-gray-600 leading-relaxed text-md font-medium">{studentInfo.bio}</p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-6 text-right">
+                                    <h3 className="text-xl font-bold text-gray-800 flex items-center px-2">
+                                        <i data-lucide="list-checks" className="ml-3 text-brand"></i>
+                                        المهام القادمة المطلوبة
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                        {upcomingTasks.map((task, index) => (
+                                            <div key={index} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:border-brand/30 transition-all group">
+                                                <div className="flex justify-between items-start mb-4">
+                                                    <div className="bg-brand/10 w-10 h-10 rounded-xl flex items-center justify-center text-brand group-hover:bg-brand group-hover:text-white transition-colors">
+                                                        <i data-lucide={task.icon} className="w-5 h-5"></i>
+                                                    </div>
+                                                    <span className="text-[10px] font-bold bg-gray-50 px-2 py-1 rounded-md text-gray-500">{task.taskType}</span>
+                                                </div>
+                                                <h4 className="font-bold text-md text-gray-800 mb-1">{task.title}</h4>
+                                                <p className="text-xs text-brand font-bold mb-3">{task.subject}</p>
+                                                <div className="space-y-2 text-[10px] text-gray-400">
+                                                    <div className="flex items-center">
+                                                        <i data-lucide="calendar" className="ml-1.5 w-3 text-gray-300"></i>
+                                                        <span>{task.date} - {task.time}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4 text-right">
+                                    <h3 className="text-xl font-bold text-gray-800 flex items-center px-2">
+                                        <i data-lucide="bar-chart-3" className="ml-3 text-brand"></i>
+                                        الإحصائيات والرسوم البيانية
+                                    </h3>
+                                    <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
+                                        <div className="flex bg-gray-50 p-1.5 rounded-2xl mb-2 overflow-x-auto no-scrollbar gap-1">
+                                            {[
+                                                {id: 'academic', label: 'الأداء الدراسي'},
+                                                {id: 'national', label: 'الاختبارات الوطنية'},
+                                                {id: 'attendance', label: 'الحضور والغياب'},
+                                                {id: 'extracurricular', label: 'تطوع وأنشطة'},
+                                                {id: 'behavior', label: 'السلوك'}
+                                            ].map(btn => (
+                                                <button 
+                                                    key={btn.id}
+                                                    onClick={() => setActiveChart(btn.id)}
+                                                    className={`px-4 py-2.5 rounded-xl text-[10px] font-bold transition-all whitespace-nowrap ${activeChart === btn.id ? 'bg-brand text-white shadow-md' : 'text-gray-400'}`}
+                                                >
+                                                    {btn.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        
+                                        <div className="pt-4">
+                                            {renderChart()}
+                                        </div>
+                                        
+                                        <div className="mt-8">
+                                            {activeChart === 'attendance' && (
+                                                <div className="grid grid-cols-3 gap-3">
+                                                    <div className="bg-green-50 p-3 rounded-2xl border border-green-100 flex flex-col items-center">
+                                                        <p className="text-[10px] text-green-600 font-bold mb-1">حضور</p>
+                                                        <p className="text-lg font-black text-green-700">20</p>
+                                                    </div>
+                                                    <div className="bg-red-50 p-3 rounded-2xl border border-red-100 flex flex-col items-center">
+                                                        <p className="text-[10px] text-red-600 font-bold mb-1">غياب</p>
+                                                        <p className="text-lg font-black text-red-700">3</p>
+                                                    </div>
+                                                    <div className="bg-yellow-50 p-3 rounded-2xl border border-yellow-100 flex flex-col items-center">
+                                                        <p className="text-[10px] text-yellow-600 font-bold mb-1">تأخر</p>
+                                                        <p className="text-lg font-black text-yellow-700">5</p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {activeChart === 'extracurricular' && (
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div className="bg-blue-50 p-3 rounded-2xl border border-blue-100 flex flex-col items-center">
+                                                        <p className="text-[10px] text-blue-600 font-bold mb-1">ساعات التطوع</p>
+                                                        <p className="text-lg font-black text-blue-700">30</p>
+                                                    </div>
+                                                    <div className="bg-purple-50 p-3 rounded-2xl border border-purple-100 flex flex-col items-center">
+                                                        <p className="text-[10px] text-purple-600 font-bold mb-1">الأنشطة</p>
+                                                        <p className="text-lg font-black text-purple-700">17</p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {activeChart === 'behavior' && (
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div className="bg-green-50 p-3 rounded-2xl border border-green-100 flex flex-col items-center">
+                                                        <p className="text-[10px] text-green-600 font-bold mb-1">إيجابي</p>
+                                                        <p className="text-lg font-black text-green-700">15</p>
+                                                    </div>
+                                                    <div className="bg-red-50 p-3 rounded-2xl border border-red-100 flex flex-col items-center">
+                                                        <p className="text-[10px] text-red-600 font-bold mb-1">سلبي</p>
+                                                        <p className="text-lg font-black text-red-700">4</p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4 text-right">
+                                    <h3 className="text-xl font-bold text-gray-800 flex items-center px-2">
+                                        <i data-lucide="trophy" className="ml-3 text-yellow-500"></i>
+                                        لوحة الشرف
+                                    </h3>
+                                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                                        <div className="divide-y divide-gray-50">
+                                            {honorRoll.map((student, idx) => (
+                                                <div key={idx} className="flex justify-between items-center p-4 hover:bg-gray-50 transition-colors">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-full bg-brand/10 text-brand flex items-center justify-center font-bold text-xs">
+                                                            {idx + 1}
+                                                        </div>
+                                                        <span className="font-bold text-gray-700 text-sm">{student.name}</span>
+                                                    </div>
+                                                    <span className="text-brand font-black text-sm">{student.grade}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4 text-right pb-32">
+                                    <h3 className="text-xl font-bold text-gray-800 flex items-center px-2">
+                                        <i data-lucide="sparkles" className="ml-3 text-brand"></i>
+                                        لوحة المتصدرين
+                                    </h3>
+                                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                                        <div className="divide-y divide-gray-50">
+                                            {leaderboard.map((student, idx) => (
+                                                <div key={idx} className="flex justify-between items-center p-4 hover:bg-gray-50 transition-colors">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-brand">
+                                                            <i data-lucide="star" className="w-5 h-5 fill-brand"></i>
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <span className="font-bold text-gray-800 text-sm">{student.name}</span>
+                                                            <span className="text-[10px] text-gray-400 font-bold">{student.title}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="bg-brand/5 px-3 py-1 rounded-full border border-brand/10">
+                                                        <span className="text-brand font-black text-xs">{student.points}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    case 'calendar':
+                        const selectedEvent = events[selectedDate];
+                        return (
+                            <div className="fade-in-section py-6 space-y-6 text-right">
+                                <div className="flex items-center justify-between px-2">
+                                    <h2 className="text-3xl font-bold text-gray-900">يناير 2026</h2>
+                                    <div className="flex space-x-4 space-x-reverse">
+                                        <button className="p-2 bg-white rounded-full shadow-sm border border-gray-100 text-brand"><i data-lucide="chevron-right"></i></button>
+                                        <button className="p-2 bg-white rounded-full shadow-sm border border-gray-100 text-brand"><i data-lucide="chevron-left"></i></button>
+                                    </div>
+                                </div>
+                                <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-gray-50">
+                                    <div className="grid grid-cols-7 mb-4">
+                                        {daysOfWeek.map((day) => (
+                                            <div key={day} className="text-center text-gray-400 text-xs font-bold py-2">{day}</div>
+                                        ))}
+                                    </div>
+                                    <div className="grid grid-cols-7 gap-y-4 text-center">
+                                        {startEmptyDays.map((_, i) => <div key={`empty-${i}`} />)}
+                                        {calendarDays.map((day) => (
+                                            <button key={day} onClick={() => setSelectedDate(day)} className="relative py-2 flex items-center justify-center">
+                                                {events[day] && <span className="absolute -top-1 text-[10px] z-20">{events[day].icon}</span>}
+                                                <span className={`z-10 text-sm font-semibold w-9 h-9 flex items-center justify-center rounded-full transition-all ${ selectedDate === day
+                                                    ? 'bg-brand text-white shadow-lg scale-110'
+                                                    : 'text-gray-600 hover:bg-brand/10'
+                                                    }`}>
+                                                    {day}
+                                                </span>
+                                                {events[day] && <div className={`absolute bottom-0 w-1 h-1 rounded-full ${selectedDate === day ? 'bg-white' : 'bg-brand'}`} />}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="bg-white rounded-3xl p-8 border border-gray-50 shadow-sm min-h-[160px] flex flex-col justify-center">
+                                    <h3 className="text-lg font-bold text-gray-800 mb-4 border-b border-gray-50 pb-2 flex items-center">
+                                        <i data-lucide="info" className="ml-2 text-brand w-5 h-5"></i>
+                                        جدول يوم {selectedDate} يناير
+                                    </h3>
+                                    {selectedEvent ? (
+                                        <div className="space-y-4 fade-in-section">
+                                            <div className="flex items-center">
+                                                <div className="text-4xl ml-4 bg-brand/10 p-3 rounded-2xl">{selectedEvent.icon}</div>
+                                                <div>
+                                                    <p className="font-bold text-xl text-gray-900 leading-tight">{selectedEvent.name}</p>
+                                                    <div className="flex items-center text-brand font-medium mt-1">
+                                                        <i data-lucide="clock" className="ml-1 w-4"></i>
+                                                        <span className="text-xs">{selectedEvent.time}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="bg-gray-50/80 p-4 rounded-2xl">
+                                                <p className="text-sm text-gray-600 leading-relaxed">{selectedEvent.desc}</p>
+                                                <div className="flex items-center text-gray-400 text-xs mt-3">
+                                                    <i data-lucide="map-pin" className="ml-1 w-4 text-brand"></i>
+                                                    <span>{selectedEvent.location}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-4"><p className="text-gray-400 text-sm italic">لا توجد مواعيد مضافة لهذا اليوم.</p></div>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    case 'reports':
+                        const reportTypes = [
+                            { title: "تقارير الأداء الدراسي", icon: "book-open", color: "text-blue-600", bg: "bg-blue-50", desc: "استعراض الدرجات، المعدل الفصلي، والتقدم في المواد الدراسية." },
+                            { title: "تقارير السلوك", icon: "shield-check", color: "text-green-600", bg: "bg-green-50", desc: "سجل الانضباط، النقاط الإيجابية، والملاحظات السلوكية." },
+                            { title: "تقارير المواظبة", icon: "calendar-check", color: "text-orange-600", bg: "bg-orange-50", desc: "إحصائيات الحضور، الغياب، والتأخر الصباحي بالتفصيل." }
+                        ];
+                        return (
+                            <div className="fade-in-section text-right space-y-6">
+                                <h2 className="text-3xl font-bold text-gray-900">التقارير المدرسية</h2>
+                                <p className="text-gray-500 text-sm font-medium pr-1">يمكنك الاطلاع وتحميل التقارير الرسمية الخاصة بالفصل الدراسي الحالي.</p>
+                                
+                                <div className="space-y-4 pb-32">
+                                    {reportTypes.map((report, idx) => (
+                                        <div key={idx} className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all group cursor-pointer">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <div className="flex items-center gap-4">
+                                                    <div className={`${report.bg} ${report.color} p-4 rounded-2xl transition-transform group-hover:scale-110`}>
+                                                        <i data-lucide={report.icon} className="w-6 h-6"></i>
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="text-lg font-bold text-gray-800">{report.title}</h3>
+                                                        <p className="text-xs text-gray-400 mt-1 font-medium">{report.desc}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="bg-gray-50 p-2 rounded-full text-gray-300 group-hover:text-brand transition-colors">
+                                                    <i data-lucide="chevron-left" className="w-5 h-5"></i>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2 mt-4">
+                                                <button className="flex-1 bg-brand/10 text-brand text-[11px] font-bold py-2 rounded-xl border border-brand/5 hover:bg-brand hover:text-white transition-all">
+                                                    عرض التقرير
+                                                </button>
+                                                <button className="flex-1 bg-gray-50 text-gray-500 text-[11px] font-bold py-2 rounded-xl border border-gray-100 hover:bg-gray-100 transition-all flex items-center justify-center gap-2">
+                                                    <i data-lucide="download" className="w-3.5 h-3.5"></i>
+                                                    تحميل PDF
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    
+                                    <div className="bg-yellow-50 border border-yellow-100 p-4 rounded-2xl flex items-start gap-3">
+                                        <i data-lucide="alert-circle" className="text-yellow-600 w-5 h-5 shrink-0 mt-0.5"></i>
+                                        <p className="text-[11px] text-yellow-700 leading-relaxed font-medium">
+                                            يتم تحديث هذه التقارير بشكل آلي بنهاية كل أسبوع دراسي. في حال وجود ملاحظات، يرجى التواصل مع الإدارة.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    default: return null;
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-gray-50 px-4 pt-8 pb-32 relative">
+                    <div className="max-w-4xl mx-auto">
+                        {renderContent()}
+                        
+                        <button 
+                            onClick={() => setIsContactOpen(true)}
+                            className="fixed bottom-32 right-6 w-14 h-14 bg-brand text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 hover:bg-brand-dark transition-all z-50 animate-bounce"
+                            style={{ animationDuration: '3s' }}
+                        >
+                            <i data-lucide="message-circle" className="w-7 h-7"></i>
+                        </button>
+
+                        {isContactOpen && (
+                            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 modal-backdrop fade-in-section">
+                                <div className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden border border-gray-100">
+                                    <div className="bg-brand p-6 text-white flex justify-between items-center">
+                                        <h3 className="text-xl font-bold">تواصل مع المعلم</h3>
+                                        <button onClick={() => setIsContactOpen(false)} className="bg-white/20 p-2 rounded-full hover:bg-white/30">
+                                            <i data-lucide="x" className="w-5 h-5"></i>
+                                        </button>
+                                    </div>
+                                    <div className="p-6 space-y-4 text-right">
+                                        <p className="text-gray-500 font-bold text-sm">اختر المادة لبدء المحادثة:</p>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {subjects.map((subject, idx) => (
+                                                <button 
+                                                    key={idx}
+                                                    onClick={() => {
+                                                        setIsContactOpen(false);
+                                                    }}
+                                                    className="p-3 bg-gray-50 rounded-2xl border border-gray-100 text-gray-700 font-bold text-xs hover:border-brand hover:text-brand transition-all text-center"
+                                                >
+                                                    {subject}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        
+                        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 w-[95%] max-w-md bg-white border-2 border-brand shadow-xl rounded-[2.5rem] px-6 py-5 flex justify-between z-50">
+                            <button onClick={() => setActiveTab('schedule')} className={`nav-button ${activeTab === 'schedule' ? 'text-brand scale-125' : 'text-gray-300'}`}>
+                                <i data-lucide="table-2" className="w-7 h-7"></i>
+                            </button>
+                            
+                            <button onClick={() => setActiveTab('dashboard')} className={`nav-button ${activeTab === 'dashboard' ? 'text-brand scale-125' : 'text-gray-300'}`}>
+                                <i data-lucide="layout-dashboard" className="w-7 h-7"></i>
+                            </button>
+                            
+                            <button onClick={() => setActiveTab('calendar')} className={`nav-button ${activeTab === 'calendar' ? 'text-brand scale-125' : 'text-gray-300'}`}>
+                                <i data-lucide="calendar" className="w-7 h-7"></i>
+                            </button>
+                            
+                            <button onClick={() => setActiveTab('reports')} className={`nav-button ${activeTab === 'reports' ? 'text-brand scale-125' : 'text-gray-300'}`}>
+                                <i data-lucide="file-bar-chart-2" className="w-7 h-7"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
